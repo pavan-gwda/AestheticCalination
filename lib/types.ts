@@ -43,13 +43,23 @@ export type Homework = {
   done: boolean;
 };
 
+export type HomeworkAttachment = {
+  id: string;
+  homework_id: string;
+  storage_path: string;
+};
+
 export type EntryDayWithRelations = EntryDay & {
   metrics: Metric[];
   photos: Photo[];
   tags: Tag[];
 };
 
+export type HomeworkWithAttachments = Homework & {
+  homework_attachments: HomeworkAttachment[];
+};
+
 export type EntryWithRelations = Entry & {
   entry_days: EntryDayWithRelations[];
-  homework: Homework[];
+  homework: HomeworkWithAttachments[];
 };

@@ -18,11 +18,20 @@ export default async function EntryPage({
 
   const { data: entry } = await supabase
     .from("entries")
-    .select("*, entry_days(*, metrics(*), photos(*), tags(*)), homework(*)")
+    .select(
+      "*, entry_days(*, metrics(*), photos(*), tags(*)), homework(*, homework_attachments(*))",
+    )
     .eq("id", id)
     .single();
 
   if (!entry) notFound();
+
+  async function withSignedUrl<T extends { storage_path: string }>(item: T) {
+    const { data } = await supabase.storage
+      .from("journal-photos")
+      .createSignedUrl(item.storage_path, 3600);
+    return { ...item, url: data?.signedUrl };
+  }
 
   const entryDays = (entry.entry_days ?? [])
     .slice()
@@ -32,21 +41,19 @@ export default async function EntryPage({
 
   // Generate signed URLs for private photos (1 hour expiry)
   for (const day of entryDays) {
-    day.photos = await Promise.all(
-      (day.photos ?? []).map(
-        async (photo: {
-          id: string;
-          storage_path: string;
-          caption: string | null;
-        }) => {
-          const { data } = await supabase.storage
-            .from("journal-photos")
-            .createSignedUrl(photo.storage_path, 3600);
-          return { ...photo, url: data?.signedUrl };
-        },
-      ),
-    );
+    day.photos = await Promise.all((day.photos ?? []).map(withSignedUrl));
   }
+
+  const homework = await Promise.all(
+    (entry.homework ?? []).map(
+      async (h: { homework_attachments: { storage_path: string }[] }) => ({
+        ...h,
+        homework_attachments: await Promise.all(
+          (h.homework_attachments ?? []).map(withSignedUrl),
+        ),
+      }),
+    ),
+  );
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
@@ -63,7 +70,7 @@ export default async function EntryPage({
         <EntryEditor
           entry={entry}
           entryDays={entryDays}
-          homework={entry.homework ?? []}
+          homework={homework}
           userId={user?.id ?? ""}
         />
       </div>

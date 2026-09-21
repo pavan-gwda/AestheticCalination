@@ -21,7 +21,13 @@ type Day = {
   photos: PhotoItem[];
   tags: Tag[];
 };
-type HomeworkItem = { id: string; description: string; done: boolean };
+type HomeworkAttachment = { id: string; storage_path: string; url?: string };
+type HomeworkItem = {
+  id: string;
+  description: string;
+  done: boolean;
+  homework_attachments: HomeworkAttachment[];
+};
 type EntryHeader = {
   id: string;
   week_start: string;
@@ -283,7 +289,10 @@ export default function EntryEditor({
       .select()
       .single();
     if (data) {
-      setHomeworkItems((prev) => [...prev, data]);
+      setHomeworkItems((prev) => [
+        ...prev,
+        { ...data, homework_attachments: [] },
+      ]);
       setNewHomework("");
     }
   }
@@ -292,6 +301,72 @@ export default function EntryEditor({
     const supabase = createClient();
     await supabase.from("homework").delete().eq("id", id);
     setHomeworkItems((prev) => prev.filter((h) => h.id !== id));
+  }
+
+  async function handleHomeworkAttachmentUpload(
+    homeworkId: string,
+    files: FileList | null,
+  ) {
+    if (!files || files.length === 0) return;
+    const supabase = createClient();
+
+    const uploaded: HomeworkAttachment[] = [];
+    for (const file of Array.from(files)) {
+      const path = `${userId}/homework/${homeworkId}/${Date.now()}-${file.name}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("journal-photos")
+        .upload(path, file);
+      if (uploadErr) continue;
+
+      const { data: row } = await supabase
+        .from("homework_attachments")
+        .insert({ homework_id: homeworkId, storage_path: path })
+        .select()
+        .single();
+      if (!row) continue;
+
+      const { data: signed } = await supabase.storage
+        .from("journal-photos")
+        .createSignedUrl(path, 3600);
+      uploaded.push({ ...row, url: signed?.signedUrl });
+    }
+
+    setHomeworkItems((prev) =>
+      prev.map((h) =>
+        h.id === homeworkId
+          ? {
+              ...h,
+              homework_attachments: [...h.homework_attachments, ...uploaded],
+            }
+          : h,
+      ),
+    );
+  }
+
+  async function deleteHomeworkAttachment(
+    homeworkId: string,
+    attachment: HomeworkAttachment,
+  ) {
+    const supabase = createClient();
+    await supabase.storage
+      .from("journal-photos")
+      .remove([attachment.storage_path]);
+    await supabase
+      .from("homework_attachments")
+      .delete()
+      .eq("id", attachment.id);
+    setHomeworkItems((prev) =>
+      prev.map((h) =>
+        h.id === homeworkId
+          ? {
+              ...h,
+              homework_attachments: h.homework_attachments.filter(
+                (a) => a.id !== attachment.id,
+              ),
+            }
+          : h,
+      ),
+    );
   }
 
   return (
@@ -467,33 +542,71 @@ export default function EntryEditor({
 
       <div className="mb-6">
         <h2 className="text-sm font-medium text-neutral-400 mb-2">Homework</h2>
-        <div className="space-y-1.5 mb-3">
+        <div className="space-y-3 mb-3">
           {homeworkItems.map((h) => (
-            <div key={h.id} className="flex items-center gap-2 text-sm group">
-              <label className="flex items-center gap-2 cursor-pointer flex-1">
-                <input
-                  type="checkbox"
-                  checked={h.done}
-                  onChange={() => toggleHomework(h.id, h.done)}
-                  className="rounded border-neutral-700 bg-neutral-900"
-                />
-                <span
-                  className={
-                    h.done
-                      ? "line-through text-neutral-500"
-                      : "text-neutral-200"
-                  }
+            <div
+              key={h.id}
+              className="rounded-md border border-neutral-800 bg-neutral-900 p-3"
+            >
+              <div className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                  <input
+                    type="checkbox"
+                    checked={h.done}
+                    onChange={() => toggleHomework(h.id, h.done)}
+                    className="rounded border-neutral-700 bg-neutral-950"
+                  />
+                  <span
+                    className={
+                      h.done
+                        ? "line-through text-neutral-500"
+                        : "text-neutral-200"
+                    }
+                  >
+                    {h.description}
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => deleteHomework(h.id)}
+                  className="text-neutral-600 hover:text-red-400 transition text-xs"
                 >
-                  {h.description}
-                </span>
-              </label>
-              <button
-                type="button"
-                onClick={() => deleteHomework(h.id)}
-                className="text-neutral-600 hover:text-red-400 transition text-xs"
-              >
-                ×
-              </button>
+                  ×
+                </button>
+              </div>
+
+              {h.homework_attachments.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {h.homework_attachments.map((a) =>
+                    a.url ? (
+                      <div key={a.id} className="relative group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={a.url}
+                          alt="Homework attachment"
+                          className="rounded-md w-full aspect-square object-cover border border-neutral-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => deleteHomeworkAttachment(h.id, a)}
+                          className="absolute top-1 right-1 bg-neutral-950/80 text-neutral-300 hover:text-red-400 rounded-full w-5 h-5 text-xs leading-5 text-center"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : null,
+                  )}
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) =>
+                  handleHomeworkAttachmentUpload(h.id, e.target.files)
+                }
+                className="w-full text-xs text-neutral-400 mt-2"
+              />
             </div>
           ))}
         </div>
