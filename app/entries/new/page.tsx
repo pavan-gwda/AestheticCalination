@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AccountBar from "@/components/account-bar";
 
-type MetricRow = { name: string; value: string; unit: string };
-
 function mondayOf(date: Date) {
   const d = new Date(date);
   const day = d.getDay();
@@ -19,14 +17,7 @@ export default function NewEntryPage() {
   const router = useRouter();
   const [weekStart, setWeekStart] = useState(mondayOf(new Date()));
   const [title, setTitle] = useState("");
-  const [notes, setNotes] = useState("");
   const [summary, setSummary] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
-  const [homeworkInput, setHomeworkInput] = useState("");
-  const [metrics, setMetrics] = useState<MetricRow[]>([
-    { name: "", value: "", unit: "reps" },
-  ]);
-  const [files, setFiles] = useState<FileList | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -37,12 +28,6 @@ export default function NewEntryPage() {
       setUserEmail(data.user?.email ?? null);
     });
   }, []);
-
-  function updateMetric(i: number, field: keyof MetricRow, val: string) {
-    setMetrics((prev) =>
-      prev.map((m, idx) => (idx === i ? { ...m, [field]: val } : m)),
-    );
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,79 +45,24 @@ export default function NewEntryPage() {
       return;
     }
 
-    // 1. Create the entry
     const { data: entry, error: entryErr } = await supabase
       .from("entries")
       .insert({
         user_id: user.id,
         week_start: weekStart,
         title: title || null,
-        notes: notes || null,
         summary: summary || null,
       })
       .select()
       .single();
 
+    setSaving(false);
+
     if (entryErr || !entry) {
       setError(entryErr?.message ?? "Could not create entry.");
-      setSaving(false);
       return;
     }
 
-    // 2. Metrics
-    const validMetrics = metrics.filter((m) => m.name && m.value);
-    if (validMetrics.length > 0) {
-      await supabase.from("metrics").insert(
-        validMetrics.map((m) => ({
-          entry_id: entry.id,
-          name: m.name,
-          value: Number(m.value),
-          unit: m.unit,
-        })),
-      );
-    }
-
-    // 3. Tags
-    const tagLabels = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    if (tagLabels.length > 0) {
-      await supabase
-        .from("tags")
-        .insert(tagLabels.map((label) => ({ entry_id: entry.id, label })));
-    }
-
-    // 4. Homework
-    const homeworkLines = homeworkInput
-      .split("\n")
-      .map((h) => h.trim())
-      .filter(Boolean);
-    if (homeworkLines.length > 0) {
-      await supabase.from("homework").insert(
-        homeworkLines.map((description) => ({
-          entry_id: entry.id,
-          description,
-        })),
-      );
-    }
-
-    // 5. Photos
-    if (files && files.length > 0) {
-      for (const file of Array.from(files)) {
-        const path = `${user.id}/${entry.id}/${Date.now()}-${file.name}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("journal-photos")
-          .upload(path, file);
-        if (!uploadErr) {
-          await supabase
-            .from("photos")
-            .insert({ entry_id: entry.id, storage_path: path });
-        }
-      }
-    }
-
-    setSaving(false);
     router.push(`/entries/${entry.id}`);
   }
 
@@ -141,7 +71,10 @@ export default function NewEntryPage() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         {userEmail && <AccountBar email={userEmail} />}
 
-        <h1 className="text-2xl font-semibold mb-6">New week</h1>
+        <h1 className="text-2xl font-semibold mb-1">New week</h1>
+        <p className="text-neutral-400 text-sm mb-6">
+          Add day-by-day details after creating the week.
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -171,7 +104,7 @@ export default function NewEntryPage() {
 
           <div>
             <label className="block text-sm text-neutral-400 mb-1">
-              Summary
+              Summary (optional)
             </label>
             <input
               type="text"
@@ -182,105 +115,6 @@ export default function NewEntryPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm text-neutral-400 mb-1">Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={6}
-              placeholder="Free-form notes for the week..."
-              className="w-full rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-neutral-400 mb-2">
-              Metrics
-            </label>
-            <div className="space-y-2">
-              {metrics.map((m, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="e.g. pull-up"
-                    value={m.name}
-                    onChange={(e) => updateMetric(i, "name", e.target.value)}
-                    className="flex-1 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="number"
-                    placeholder="value"
-                    value={m.value}
-                    onChange={(e) => updateMetric(i, "value", e.target.value)}
-                    className="w-24 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
-                  />
-                  <select
-                    value={m.unit}
-                    onChange={(e) => updateMetric(i, "unit", e.target.value)}
-                    className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-2 text-sm"
-                  >
-                    <option value="reps">reps</option>
-                    <option value="seconds">seconds</option>
-                    <option value="level">level</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                setMetrics((prev) => [
-                  ...prev,
-                  { name: "", value: "", unit: "reps" },
-                ])
-              }
-              className="mt-2 text-sm text-neutral-400 hover:text-neutral-200"
-            >
-              + Add metric
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-sm text-neutral-400 mb-1">
-              Tags / what I learned (comma separated)
-            </label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="shoulder anatomy, scapular control, false grip"
-              className="w-full rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-neutral-400 mb-1">
-              Homework for next week (one per line)
-            </label>
-            <textarea
-              value={homeworkInput}
-              onChange={(e) => setHomeworkInput(e.target.value)}
-              rows={3}
-              placeholder={
-                "Practice tuck planche 3x/week\nStretch shoulders daily"
-              }
-              className="w-full rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-neutral-400 mb-1">
-              Photos
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => setFiles(e.target.files)}
-              className="w-full text-sm text-neutral-400"
-            />
-          </div>
-
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <button
@@ -288,7 +122,7 @@ export default function NewEntryPage() {
             disabled={saving}
             className="w-full rounded-md bg-neutral-100 text-neutral-900 py-2.5 text-sm font-medium hover:bg-white transition disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save entry"}
+            {saving ? "Saving..." : "Create week"}
           </button>
         </form>
       </div>

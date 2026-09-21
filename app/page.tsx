@@ -12,7 +12,9 @@ export default async function HomePage() {
 
   const { data: entries } = await supabase
     .from("entries")
-    .select("id, week_start, title, summary, tags(label), homework(id, done)")
+    .select(
+      "id, week_start, title, summary, entry_days(tags(label)), homework(id, done)",
+    )
     .order("week_start", { ascending: false });
 
   return (
@@ -39,6 +41,9 @@ export default async function HomePage() {
             {entries.map((entry) => {
               const openHomework =
                 entry.homework?.filter((h) => !h.done).length ?? 0;
+              const tags = (entry.entry_days ?? []).flatMap(
+                (d) => d.tags ?? [],
+              );
               return (
                 <Link
                   key={entry.id}
@@ -64,9 +69,9 @@ export default async function HomePage() {
                       {entry.summary}
                     </p>
                   )}
-                  {entry.tags && entry.tags.length > 0 && (
+                  {tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {entry.tags.map((t, i: number) => (
+                      {tags.map((t, i: number) => (
                         <span
                           key={i}
                           className="text-xs bg-neutral-800 text-neutral-300 rounded px-2 py-0.5"
