@@ -279,6 +279,17 @@ export default function EntryEditor({
     await supabase.from("homework").update({ done: !done }).eq("id", id);
   }
 
+  function updateHomeworkDescription(id: string, description: string) {
+    setHomeworkItems((prev) =>
+      prev.map((h) => (h.id === id ? { ...h, description } : h)),
+    );
+  }
+
+  async function saveHomeworkDescription(id: string, description: string) {
+    const supabase = createClient();
+    await supabase.from("homework").update({ description }).eq("id", id);
+  }
+
   async function addHomework(e: React.FormEvent) {
     e.preventDefault();
     if (!newHomework.trim()) return;
@@ -548,28 +559,30 @@ export default function EntryEditor({
               key={h.id}
               className="rounded-md border border-neutral-800 bg-neutral-900 p-3"
             >
-              <div className="flex items-center gap-2 text-sm">
-                <label className="flex items-center gap-2 cursor-pointer flex-1">
-                  <input
-                    type="checkbox"
-                    checked={h.done}
-                    onChange={() => toggleHomework(h.id, h.done)}
-                    className="rounded border-neutral-700 bg-neutral-950"
-                  />
-                  <span
-                    className={
-                      h.done
-                        ? "line-through text-neutral-500"
-                        : "text-neutral-200"
-                    }
-                  >
-                    {h.description}
-                  </span>
-                </label>
+              <div className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={h.done}
+                  onChange={() => toggleHomework(h.id, h.done)}
+                  className="rounded border-neutral-700 bg-neutral-950 mt-2"
+                />
+                <textarea
+                  value={h.description}
+                  onChange={(e) =>
+                    updateHomeworkDescription(h.id, e.target.value)
+                  }
+                  onBlur={(e) => saveHomeworkDescription(h.id, e.target.value)}
+                  rows={2}
+                  className={`flex-1 bg-transparent outline-none resize-none py-1.5 ${
+                    h.done
+                      ? "line-through text-neutral-500"
+                      : "text-neutral-200"
+                  }`}
+                />
                 <button
                   type="button"
                   onClick={() => deleteHomework(h.id)}
-                  className="text-neutral-600 hover:text-red-400 transition text-xs"
+                  className="text-neutral-600 hover:text-red-400 transition text-xs mt-2"
                 >
                   ×
                 </button>
@@ -610,13 +623,13 @@ export default function EntryEditor({
             </div>
           ))}
         </div>
-        <form onSubmit={addHomework} className="flex gap-2">
-          <input
-            type="text"
+        <form onSubmit={addHomework} className="flex gap-2 items-start">
+          <textarea
             value={newHomework}
             onChange={(e) => setNewHomework(e.target.value)}
-            placeholder="Add homework for next week"
-            className="flex-1 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
+            placeholder="Write homework for next week..."
+            rows={2}
+            className="flex-1 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm resize-none"
           />
           <button
             type="submit"
