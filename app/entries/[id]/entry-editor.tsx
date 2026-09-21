@@ -85,6 +85,7 @@ export default function EntryEditor({
   );
   const [homeworkItems, setHomeworkItems] = useState(homework);
   const [newHomework, setNewHomework] = useState("");
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const weekEnd = addDaysToDate(entry.week_start, 6);
 
@@ -506,7 +507,8 @@ export default function EntryEditor({
                       <img
                         src={p.url}
                         alt={p.caption ?? "progress photo"}
-                        className="rounded-md w-full aspect-square object-cover border border-neutral-800"
+                        onClick={() => setLightboxUrl(p.url ?? null)}
+                        className="rounded-md w-full aspect-square object-cover border border-neutral-800 cursor-pointer"
                       />
                       <button
                         type="button"
@@ -597,7 +599,8 @@ export default function EntryEditor({
                         <img
                           src={a.url}
                           alt="Homework attachment"
-                          className="rounded-md w-full aspect-square object-cover border border-neutral-800"
+                          onClick={() => setLightboxUrl(a.url ?? null)}
+                          className="rounded-md w-full aspect-square object-cover border border-neutral-800 cursor-pointer"
                         />
                         <button
                           type="button"
@@ -639,6 +642,27 @@ export default function EntryEditor({
           </button>
         </form>
       </div>
+
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 cursor-pointer"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="Full size"
+            className="max-w-full max-h-full object-contain"
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }
