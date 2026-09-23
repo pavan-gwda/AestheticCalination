@@ -11,7 +11,7 @@ export default async function ClientsPage() {
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, name, email, phone, parq_answers(cleared)")
+    .select("id, name, email, phone")
     .order("name", { ascending: true });
 
   return (
@@ -42,42 +42,20 @@ export default async function ClientsPage() {
           </p>
         ) : (
           <div className="space-y-3">
-            {clients.map((client) => {
-              const parq = client.parq_answers as unknown as
-                { cleared: boolean } | { cleared: boolean }[] | null;
-              const parqRow = Array.isArray(parq) ? parq[0] : parq;
-              return (
-                <Link
-                  key={client.id}
-                  href={`/clients/${client.id}`}
-                  className="block rounded-lg border border-neutral-800 bg-neutral-900 p-4 hover:border-neutral-600 transition"
-                >
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-medium">{client.name}</h2>
-                    {parqRow ? (
-                      <span
-                        className={`text-xs rounded-full px-2 py-0.5 ${
-                          parqRow.cleared
-                            ? "bg-green-900/40 text-green-300"
-                            : "bg-amber-900/40 text-amber-300"
-                        }`}
-                      >
-                        {parqRow.cleared ? "Cleared" : "Consult physician"}
-                      </span>
-                    ) : (
-                      <span className="text-xs rounded-full bg-neutral-800 text-neutral-400 px-2 py-0.5">
-                        No PAR-Q yet
-                      </span>
-                    )}
-                  </div>
-                  {(client.email || client.phone) && (
-                    <p className="text-neutral-400 text-sm mt-1">
-                      {[client.email, client.phone].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
-                </Link>
-              );
-            })}
+            {clients.map((client) => (
+              <Link
+                key={client.id}
+                href={`/clients/${client.id}`}
+                className="block rounded-lg border border-neutral-800 bg-neutral-900 p-4 hover:border-neutral-600 transition"
+              >
+                <h2 className="text-lg font-medium">{client.name}</h2>
+                {(client.email || client.phone) && (
+                  <p className="text-neutral-400 text-sm mt-1">
+                    {[client.email, client.phone].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+              </Link>
+            ))}
           </div>
         )}
       </div>
