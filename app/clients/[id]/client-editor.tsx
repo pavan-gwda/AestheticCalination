@@ -44,6 +44,17 @@ type ClientMetric = {
 
 type MovementFinding = { id: string; label: string; restricted: boolean };
 
+const DEFAULT_STRENGTH_MOVEMENTS: { name: string; unit: string }[] = [
+  { name: "Push-ups", unit: "reps" },
+  { name: "Pull-ups", unit: "reps" },
+  { name: "Dips", unit: "reps" },
+  { name: "L-sit", unit: "seconds" },
+  { name: "Chin-ups", unit: "reps" },
+  { name: "Cardio (optional)", unit: "minutes" },
+];
+
+const DEFAULT_MOBILITY_CHECKS = ["Ankle", "Wrist", "Hip", "Shoulders"];
+
 const PARQ_QUESTIONS: { key: keyof NonNullable<Parq>; label: string }[] = [
   {
     key: "q1_heart_condition",
@@ -156,7 +167,15 @@ export default function ClientEditor({
   const [newFinding, setNewFinding] = useState("");
   const [newFindingRestricted, setNewFindingRestricted] = useState(false);
   const [metrics, setMetrics] = useState<ClientMetric[]>(
-    clientMetrics.map((m) => ({ ...m, value: String(m.value) })),
+    clientMetrics.length > 0
+      ? clientMetrics.map((m) => ({ ...m, value: String(m.value) }))
+      : DEFAULT_STRENGTH_MOVEMENTS.map((d) => ({
+          id: null,
+          name: d.name,
+          value: "",
+          unit: d.unit,
+          recorded_at: todayISO(),
+        })),
   );
 
   async function saveHeader() {
@@ -227,24 +246,22 @@ export default function ClientEditor({
     if (data) setScreen(toMovementScreenState(data));
   }
 
-  async function addFinding(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newFinding.trim()) return;
+  async function insertFinding(label: string, restricted: boolean) {
     const supabase = createClient();
     const { data } = await supabase
       .from("movement_findings")
-      .insert({
-        client_id: client.id,
-        label: newFinding.trim(),
-        restricted: newFindingRestricted,
-      })
+      .insert({ client_id: client.id, label, restricted })
       .select()
       .single();
-    if (data) {
-      setFindings((prev) => [...prev, data]);
-      setNewFinding("");
-      setNewFindingRestricted(false);
-    }
+    if (data) setFindings((prev) => [...prev, data]);
+  }
+
+  async function addFinding(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newFinding.trim()) return;
+    await insertFinding(newFinding.trim(), newFindingRestricted);
+    setNewFinding("");
+    setNewFindingRestricted(false);
   }
 
   async function toggleFindingRestricted(id: string, restricted: boolean) {
@@ -456,6 +473,26 @@ export default function ClientEditor({
               ))}
             </div>
           )}
+          {(() => {
+            const existingLabels = findings.map((f) => f.label.toLowerCase());
+            const suggestions = DEFAULT_MOBILITY_CHECKS.filter(
+              (m) => !existingLabels.includes(m.toLowerCase()),
+            );
+            return suggestions.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {suggestions.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => insertFinding(m, false)}
+                    className="text-xs rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 px-2 py-1 transition"
+                  >
+                    + {m}
+                  </button>
+                ))}
+              </div>
+            ) : null;
+          })()}
           <form onSubmit={addFinding} className="flex items-center gap-2">
             <input
               type="text"
