@@ -63,3 +63,59 @@ export type EntryWithRelations = Entry & {
   entry_days: EntryDayWithRelations[];
   homework: HomeworkWithAttachments[];
 };
+
+export type Client = {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ParqAnswers = {
+  id: string;
+  client_id: string;
+  q1_heart_condition: boolean;
+  q2_chest_pain_activity: boolean;
+  q3_chest_pain_rest: boolean;
+  q4_dizziness_balance: boolean;
+  q5_bone_joint_problem: boolean;
+  q6_bp_or_heart_drugs: boolean;
+  q7_other_reason: boolean;
+  cleared: boolean;
+  notes: string | null;
+  assessed_at: string; // ISO date
+};
+
+export type ClientMetric = {
+  id: string;
+  client_id: string;
+  name: string;
+  value: number;
+  unit: string;
+  recorded_at: string; // ISO date
+};
+
+export type MovementScreen = {
+  id: string;
+  client_id: string;
+  max_pull_ups: number | null;
+  max_push_ups: number | null;
+  max_dips: number | null;
+  max_squat_reps: number | null;
+  shoulder_overhead_restricted: boolean;
+  wrist_extension_restricted: boolean;
+  ankle_hip_restricted: boolean;
+  years_training: number | null;
+  current_goal: string | null;
+  injury_notes: string | null;
+  assessed_at: string; // ISO date
+};
+
+export type ClientWithRelations = Client & {
+  parq_answers: ParqAnswers | null;
+  movement_screens: MovementScreen | null;
+  client_metrics: ClientMetric[];
+};

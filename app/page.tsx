@@ -32,6 +32,13 @@ export default async function HomePage() {
 
         {user?.email && <AccountBar email={user.email} />}
 
+        <Link
+          href="/clients"
+          className="block mb-6 text-sm text-neutral-400 hover:text-neutral-200 transition"
+        >
+          Practice — clients & progressions →
+        </Link>
+
         {!entries || entries.length === 0 ? (
           <p className="text-neutral-500 text-sm">
             No entries yet. Log your first week to get started.
