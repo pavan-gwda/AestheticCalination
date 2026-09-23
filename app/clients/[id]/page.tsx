@@ -19,7 +19,7 @@ export default async function ClientPage({
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "*, parq_answers(*), movement_screens(*), movement_findings(*), client_metrics(*)",
+      "*, parq_answers(*), movement_screens(*), movement_findings(*), movement_screen_metrics(*), client_metrics(*)",
     )
     .eq("id", id)
     .single();
@@ -34,11 +34,18 @@ export default async function ClientPage({
     ? (client.movement_screens[0] ?? null)
     : client.movement_screens;
 
+  const byRecordedAtDesc = (
+    a: { recorded_at: string },
+    b: { recorded_at: string },
+  ) => b.recorded_at.localeCompare(a.recorded_at);
+
   const clientMetrics = (client.client_metrics ?? [])
     .slice()
-    .sort((a: { recorded_at: string }, b: { recorded_at: string }) =>
-      b.recorded_at.localeCompare(a.recorded_at),
-    );
+    .sort(byRecordedAtDesc);
+
+  const movementScreenMetrics = (client.movement_screen_metrics ?? [])
+    .slice()
+    .sort(byRecordedAtDesc);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
@@ -57,6 +64,7 @@ export default async function ClientPage({
           parq={parq}
           movementScreen={movementScreen}
           movementFindings={client.movement_findings ?? []}
+          movementScreenMetrics={movementScreenMetrics}
           clientMetrics={clientMetrics}
         />
       </div>

@@ -116,9 +116,12 @@ export type MovementFinding = {
   restricted: boolean;
 };
 
+export type MovementScreenMetric = ClientMetric;
+
 export type ClientWithRelations = Client & {
   parq_answers: ParqAnswers | null;
   movement_screens: MovementScreen | null;
   movement_findings: MovementFinding[];
+  movement_screen_metrics: MovementScreenMetric[];
   client_metrics: ClientMetric[];
 };

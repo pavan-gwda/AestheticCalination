@@ -113,6 +113,213 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function makeMetricActions(
+  tableName: "client_metrics" | "movement_screen_metrics",
+  clientId: string,
+  metrics: ClientMetric[],
+  setMetrics: React.Dispatch<React.SetStateAction<ClientMetric[]>>,
+) {
+  function addRow() {
+    setMetrics((prev) => [
+      ...prev,
+      {
+        id: null,
+        name: "",
+        value: "",
+        unit: "level",
+        category: "Other",
+        notes: "",
+        recorded_at: todayISO(),
+      },
+    ]);
+  }
+
+  function updateField(
+    index: number,
+    field: keyof ClientMetric,
+    value: string,
+  ) {
+    setMetrics((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)),
+    );
+  }
+
+  async function save(index: number) {
+    const metric = metrics[index];
+    if (!metric.name || !metric.value) return;
+
+    const supabase = createClient();
+    if (metric.id) {
+      await supabase
+        .from(tableName)
+        .update({
+          name: metric.name,
+          value: Number(metric.value),
+          unit: metric.unit,
+          category: metric.category,
+          notes: metric.notes || null,
+          recorded_at: metric.recorded_at,
+        })
+        .eq("id", metric.id);
+    } else {
+      const { data } = await supabase
+        .from(tableName)
+        .insert({
+          client_id: clientId,
+          name: metric.name,
+          value: Number(metric.value),
+          unit: metric.unit,
+          category: metric.category,
+          notes: metric.notes || null,
+          recorded_at: metric.recorded_at,
+        })
+        .select()
+        .single();
+      if (data) {
+        setMetrics((prev) =>
+          prev.map((m, i) => (i === index ? { ...m, id: data.id } : m)),
+        );
+      }
+    }
+  }
+
+  async function remove(index: number) {
+    const metric = metrics[index];
+    if (metric.id) {
+      const supabase = createClient();
+      await supabase.from(tableName).delete().eq("id", metric.id);
+    }
+    setMetrics((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  return { addRow, updateField, save, remove };
+}
+
+function MetricList({
+  rows,
+  addLabel,
+  onUpdateField,
+  onSave,
+  onDelete,
+  onAdd,
+}: {
+  rows: ClientMetric[];
+  addLabel: string;
+  onUpdateField: (
+    index: number,
+    field: keyof ClientMetric,
+    value: string,
+  ) => void;
+  onSave: (index: number) => void;
+  onDelete: (index: number) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div>
+      {METRIC_CATEGORIES.map((category) => {
+        const categoryRows = rows
+          .map((m, i) => ({ m, i }))
+          .filter(({ m }) => (m.category || "Other") === category);
+        if (categoryRows.length === 0) return null;
+        return (
+          <div key={category} className="mb-3">
+            <h4 className="text-xs text-neutral-600 mb-1.5">{category}</h4>
+            <div className="space-y-2">
+              {categoryRows.map(({ m, i }) => (
+                <div
+                  key={m.id ?? `new-${i}`}
+                  className="rounded-md border border-neutral-800 bg-neutral-950 p-2"
+                >
+                  <div className="flex gap-2 mb-1.5">
+                    <input
+                      type="text"
+                      placeholder="e.g. tuck planche"
+                      value={m.name}
+                      onChange={(e) => onUpdateField(i, "name", e.target.value)}
+                      onBlur={() => onSave(i)}
+                      className="flex-1 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="value"
+                      value={m.value}
+                      onChange={(e) =>
+                        onUpdateField(i, "value", e.target.value)
+                      }
+                      onBlur={() => onSave(i)}
+                      className="w-20 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
+                    />
+                    <select
+                      value={m.unit}
+                      onChange={(e) => {
+                        onUpdateField(i, "unit", e.target.value);
+                        onSave(i);
+                      }}
+                      className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-2 text-sm"
+                    >
+                      <option value="level">level</option>
+                      <option value="reps">reps</option>
+                      <option value="seconds">seconds</option>
+                      <option value="minutes">minutes</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(i)}
+                      className="text-neutral-500 hover:text-red-400 transition px-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="flex gap-2 mb-1.5">
+                    <select
+                      value={m.category || "Other"}
+                      onChange={(e) => {
+                        onUpdateField(i, "category", e.target.value);
+                        onSave(i);
+                      }}
+                      className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-1.5 text-xs text-neutral-400"
+                    >
+                      {METRIC_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="date"
+                      value={m.recorded_at}
+                      onChange={(e) =>
+                        onUpdateField(i, "recorded_at", e.target.value)
+                      }
+                      onBlur={() => onSave(i)}
+                      className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-1.5 text-xs"
+                    />
+                  </div>
+                  <textarea
+                    value={m.notes}
+                    onChange={(e) => onUpdateField(i, "notes", e.target.value)}
+                    onBlur={() => onSave(i)}
+                    placeholder="Limitations / assessment notes..."
+                    rows={1}
+                    className="w-full rounded-md bg-neutral-900 border border-neutral-800 px-3 py-1.5 text-xs resize-none"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="text-xs text-neutral-400 hover:text-neutral-200 transition"
+      >
+        + {addLabel}
+      </button>
+    </div>
+  );
+}
+
 function emptyParq(clientId: string): Parq {
   return {
     client_id: clientId,
@@ -155,12 +362,14 @@ export default function ClientEditor({
   parq: initialParq,
   movementScreen: initialMovementScreen,
   movementFindings,
+  movementScreenMetrics,
   clientMetrics,
 }: {
   client: ClientHeader;
   parq: Parq;
   movementScreen: MovementScreenInput;
   movementFindings: MovementFinding[];
+  movementScreenMetrics: ClientMetric[];
   clientMetrics: ClientMetric[];
 }) {
   const [name, setName] = useState(client.name);
@@ -174,9 +383,12 @@ export default function ClientEditor({
   const [findings, setFindings] = useState<MovementFinding[]>(movementFindings);
   const [newFinding, setNewFinding] = useState("");
   const [newFindingRestricted, setNewFindingRestricted] = useState(false);
-  const [metrics, setMetrics] = useState<ClientMetric[]>(
-    clientMetrics.length > 0
-      ? clientMetrics.map((m) => ({
+
+  // Current movements & metrics: what the client can actually do right
+  // now, recorded during the movement screen itself.
+  const [screenMetrics, setScreenMetrics] = useState<ClientMetric[]>(
+    movementScreenMetrics.length > 0
+      ? movementScreenMetrics.map((m) => ({
           ...m,
           value: String(m.value),
           notes: m.notes ?? "",
@@ -190,6 +402,27 @@ export default function ClientEditor({
           notes: "",
           recorded_at: todayISO(),
         })),
+  );
+  const screenMetricActions = makeMetricActions(
+    "movement_screen_metrics",
+    client.id,
+    screenMetrics,
+    setScreenMetrics,
+  );
+
+  // Progression: targets you recommend, authored by you - not pre-filled.
+  const [metrics, setMetrics] = useState<ClientMetric[]>(
+    clientMetrics.map((m) => ({
+      ...m,
+      value: String(m.value),
+      notes: m.notes ?? "",
+    })),
+  );
+  const metricActions = makeMetricActions(
+    "client_metrics",
+    client.id,
+    metrics,
+    setMetrics,
   );
 
   async function saveHeader() {
@@ -295,79 +528,6 @@ export default function ClientEditor({
     setFindings((prev) => prev.filter((f) => f.id !== id));
   }
 
-  function addMetricRow() {
-    setMetrics((prev) => [
-      ...prev,
-      {
-        id: null,
-        name: "",
-        value: "",
-        unit: "level",
-        category: "Other",
-        notes: "",
-        recorded_at: todayISO(),
-      },
-    ]);
-  }
-
-  function updateMetricField(
-    index: number,
-    field: keyof ClientMetric,
-    value: string,
-  ) {
-    setMetrics((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)),
-    );
-  }
-
-  async function saveMetric(index: number) {
-    const metric = metrics[index];
-    if (!metric.name || !metric.value) return;
-
-    const supabase = createClient();
-    if (metric.id) {
-      await supabase
-        .from("client_metrics")
-        .update({
-          name: metric.name,
-          value: Number(metric.value),
-          unit: metric.unit,
-          category: metric.category,
-          notes: metric.notes || null,
-          recorded_at: metric.recorded_at,
-        })
-        .eq("id", metric.id);
-    } else {
-      const { data } = await supabase
-        .from("client_metrics")
-        .insert({
-          client_id: client.id,
-          name: metric.name,
-          value: Number(metric.value),
-          unit: metric.unit,
-          category: metric.category,
-          notes: metric.notes || null,
-          recorded_at: metric.recorded_at,
-        })
-        .select()
-        .single();
-      if (data) {
-        setMetrics((prev) =>
-          prev.map((m, i) => (i === index ? { ...m, id: data.id } : m)),
-        );
-      }
-    }
-  }
-
-  async function deleteMetric(index: number) {
-    const metric = metrics[index];
-    if (metric.id) {
-      const supabase = createClient();
-      await supabase.from("client_metrics").delete().eq("id", metric.id);
-    }
-    setMetrics((prev) => prev.filter((_, i) => i !== index));
-  }
-
   return (
     <div className="mt-3">
       <div className="mb-6 space-y-2">
@@ -458,13 +618,9 @@ export default function ClientEditor({
       </div>
 
       <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-200 mb-1">
+        <h2 className="text-sm font-medium text-neutral-200 mb-3">
           Movement screen
         </h2>
-        <p className="text-xs text-neutral-500 mb-3">
-          Log baseline strength (pull-ups, push-ups, etc.) as a dated entry in
-          Progression below.
-        </p>
 
         <div className="mb-4">
           <label className="block text-xs text-neutral-500 mb-1">
@@ -545,6 +701,20 @@ export default function ClientEditor({
           </form>
         </div>
 
+        <div className="mb-4">
+          <label className="block text-xs text-neutral-500 mb-1">
+            Current movements & metrics
+          </label>
+          <MetricList
+            rows={screenMetrics}
+            addLabel="Add movement"
+            onUpdateField={screenMetricActions.updateField}
+            onSave={screenMetricActions.save}
+            onDelete={screenMetricActions.remove}
+            onAdd={screenMetricActions.addRow}
+          />
+        </div>
+
         <div className="flex gap-2 mb-3">
           <div className="flex-1">
             <label className="block text-xs text-neutral-500 mb-1">
@@ -605,112 +775,17 @@ export default function ClientEditor({
         <h2 className="text-sm font-medium text-neutral-400 mb-2">
           Progression
         </h2>
-        {METRIC_CATEGORIES.map((category) => {
-          const rows = metrics
-            .map((m, i) => ({ m, i }))
-            .filter(({ m }) => (m.category || "Other") === category);
-          if (rows.length === 0) return null;
-          return (
-            <div key={category} className="mb-4">
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">
-                {category}
-              </h3>
-              <div className="space-y-2">
-                {rows.map(({ m, i }) => (
-                  <div
-                    key={m.id ?? `new-${i}`}
-                    className="rounded-md border border-neutral-800 bg-neutral-900 p-2"
-                  >
-                    <div className="flex gap-2 mb-1.5">
-                      <input
-                        type="text"
-                        placeholder="e.g. tuck planche"
-                        value={m.name}
-                        onChange={(e) =>
-                          updateMetricField(i, "name", e.target.value)
-                        }
-                        onBlur={() => saveMetric(i)}
-                        className="flex-1 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
-                      />
-                      <input
-                        type="number"
-                        placeholder="value"
-                        value={m.value}
-                        onChange={(e) =>
-                          updateMetricField(i, "value", e.target.value)
-                        }
-                        onBlur={() => saveMetric(i)}
-                        className="w-20 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
-                      />
-                      <select
-                        value={m.unit}
-                        onChange={(e) => {
-                          updateMetricField(i, "unit", e.target.value);
-                          saveMetric(i);
-                        }}
-                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-2 text-sm"
-                      >
-                        <option value="level">level</option>
-                        <option value="reps">reps</option>
-                        <option value="seconds">seconds</option>
-                        <option value="minutes">minutes</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => deleteMetric(i)}
-                        className="text-neutral-500 hover:text-red-400 transition px-1"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="flex gap-2 mb-1.5">
-                      <select
-                        value={m.category || "Other"}
-                        onChange={(e) => {
-                          updateMetricField(i, "category", e.target.value);
-                          saveMetric(i);
-                        }}
-                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-xs text-neutral-400"
-                      >
-                        {METRIC_CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="date"
-                        value={m.recorded_at}
-                        onChange={(e) =>
-                          updateMetricField(i, "recorded_at", e.target.value)
-                        }
-                        onBlur={() => saveMetric(i)}
-                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-xs"
-                      />
-                    </div>
-                    <textarea
-                      value={m.notes}
-                      onChange={(e) =>
-                        updateMetricField(i, "notes", e.target.value)
-                      }
-                      onBlur={() => saveMetric(i)}
-                      placeholder="Limitations / assessment notes..."
-                      rows={1}
-                      className="w-full rounded-md bg-neutral-950 border border-neutral-800 px-3 py-1.5 text-xs resize-none"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        <button
-          type="button"
-          onClick={addMetricRow}
-          className="text-xs text-neutral-400 hover:text-neutral-200 transition"
-        >
-          + Add progression entry
-        </button>
+        <p className="text-xs text-neutral-600 mb-2">
+          Targets you recommend for this client — not pre-filled.
+        </p>
+        <MetricList
+          rows={metrics}
+          addLabel="Add progression entry"
+          onUpdateField={metricActions.updateField}
+          onSave={metricActions.save}
+          onDelete={metricActions.remove}
+          onAdd={metricActions.addRow}
+        />
       </div>
     </div>
   );
