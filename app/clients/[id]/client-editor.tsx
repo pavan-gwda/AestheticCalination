@@ -44,8 +44,6 @@ type ClientMetric = {
   recorded_at: string;
 };
 
-type MovementFinding = { id: string; label: string; restricted: boolean };
-
 const METRIC_CATEGORIES = ["Strength", "Mobility", "Cardio", "Other"];
 
 const DEFAULT_STRENGTH_MOVEMENTS: {
@@ -60,8 +58,6 @@ const DEFAULT_STRENGTH_MOVEMENTS: {
   { name: "Chin-ups", unit: "reps", category: "Strength" },
   { name: "Cardio (optional)", unit: "minutes", category: "Cardio" },
 ];
-
-const DEFAULT_MOBILITY_CHECKS = ["Ankle", "Wrist", "Hip", "Shoulders"];
 
 const PARQ_QUESTIONS: { key: keyof NonNullable<Parq>; label: string }[] = [
   {
@@ -361,14 +357,12 @@ export default function ClientEditor({
   client,
   parq: initialParq,
   movementScreen: initialMovementScreen,
-  movementFindings,
   movementScreenMetrics,
   clientMetrics,
 }: {
   client: ClientHeader;
   parq: Parq;
   movementScreen: MovementScreenInput;
-  movementFindings: MovementFinding[];
   movementScreenMetrics: ClientMetric[];
   clientMetrics: ClientMetric[];
 }) {
@@ -380,9 +374,6 @@ export default function ClientEditor({
     toMovementScreenState(initialMovementScreen) ??
       emptyMovementScreen(client.id),
   );
-  const [findings, setFindings] = useState<MovementFinding[]>(movementFindings);
-  const [newFinding, setNewFinding] = useState("");
-  const [newFindingRestricted, setNewFindingRestricted] = useState(false);
 
   // Current movements & metrics: what the client can actually do right
   // now, recorded during the movement screen itself.
@@ -493,41 +484,6 @@ export default function ClientEditor({
     if (data) setScreen(toMovementScreenState(data));
   }
 
-  async function insertFinding(label: string, restricted: boolean) {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("movement_findings")
-      .insert({ client_id: client.id, label, restricted })
-      .select()
-      .single();
-    if (data) setFindings((prev) => [...prev, data]);
-  }
-
-  async function addFinding(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newFinding.trim()) return;
-    await insertFinding(newFinding.trim(), newFindingRestricted);
-    setNewFinding("");
-    setNewFindingRestricted(false);
-  }
-
-  async function toggleFindingRestricted(id: string, restricted: boolean) {
-    setFindings((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, restricted: !restricted } : f)),
-    );
-    const supabase = createClient();
-    await supabase
-      .from("movement_findings")
-      .update({ restricted: !restricted })
-      .eq("id", id);
-  }
-
-  async function deleteFinding(id: string) {
-    const supabase = createClient();
-    await supabase.from("movement_findings").delete().eq("id", id);
-    setFindings((prev) => prev.filter((f) => f.id !== id));
-  }
-
   return (
     <div className="mt-3">
       <div className="mb-6 space-y-2">
@@ -621,85 +577,6 @@ export default function ClientEditor({
         <h2 className="text-sm font-medium text-neutral-200 mb-3">
           Movement screen
         </h2>
-
-        <div className="mb-4">
-          <label className="block text-xs text-neutral-500 mb-1">
-            Movement checks
-          </label>
-          {findings.length > 0 && (
-            <div className="space-y-1.5 mb-2">
-              {findings.map((f) => (
-                <div
-                  key={f.id}
-                  className="flex items-center gap-2 text-sm rounded-md bg-neutral-950 border border-neutral-800 px-3 py-1.5"
-                >
-                  <input
-                    type="checkbox"
-                    checked={f.restricted}
-                    onChange={() => toggleFindingRestricted(f.id, f.restricted)}
-                    className="rounded border-neutral-700 bg-neutral-900"
-                  />
-                  <span
-                    className={`flex-1 ${f.restricted ? "text-amber-300" : "text-neutral-300"}`}
-                  >
-                    {f.label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => deleteFinding(f.id)}
-                    className="text-neutral-600 hover:text-red-400 transition text-xs"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {(() => {
-            const existingLabels = findings.map((f) => f.label.toLowerCase());
-            const suggestions = DEFAULT_MOBILITY_CHECKS.filter(
-              (m) => !existingLabels.includes(m.toLowerCase()),
-            );
-            return suggestions.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {suggestions.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => insertFinding(m, false)}
-                    className="text-xs rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 px-2 py-1 transition"
-                  >
-                    + {m}
-                  </button>
-                ))}
-              </div>
-            ) : null;
-          })()}
-          <form onSubmit={addFinding} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={newFinding}
-              onChange={(e) => setNewFinding(e.target.value)}
-              placeholder="e.g. shoulder overhead mobility"
-              className="flex-1 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
-            />
-            <label className="flex items-center gap-1.5 text-xs text-neutral-400 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={newFindingRestricted}
-                onChange={(e) => setNewFindingRestricted(e.target.checked)}
-                className="rounded border-neutral-700 bg-neutral-950"
-              />
-              Restricted
-            </label>
-            <button
-              type="submit"
-              className="rounded-md bg-neutral-800 text-neutral-200 px-3 py-2 text-sm font-medium hover:bg-neutral-700 transition"
-            >
-              Add
-            </button>
-          </form>
-        </div>
 
         <div className="mb-4">
           <label className="block text-xs text-neutral-500 mb-1">

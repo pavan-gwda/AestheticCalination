@@ -109,19 +109,11 @@ export type MovementScreen = {
   assessed_at: string; // ISO date
 };
 
-export type MovementFinding = {
-  id: string;
-  client_id: string;
-  label: string;
-  restricted: boolean;
-};
-
 export type MovementScreenMetric = ClientMetric;
 
 export type ClientWithRelations = Client & {
   parq_answers: ParqAnswers | null;
   movement_screens: MovementScreen | null;
-  movement_findings: MovementFinding[];
   movement_screen_metrics: MovementScreenMetric[];
   client_metrics: ClientMetric[];
 };

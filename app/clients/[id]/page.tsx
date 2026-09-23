@@ -19,7 +19,7 @@ export default async function ClientPage({
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "*, parq_answers(*), movement_screens(*), movement_findings(*), movement_screen_metrics(*), client_metrics(*)",
+      "*, parq_answers(*), movement_screens(*), movement_screen_metrics(*), client_metrics(*)",
     )
     .eq("id", id)
     .single();
@@ -63,7 +63,6 @@ export default async function ClientPage({
           client={client}
           parq={parq}
           movementScreen={movementScreen}
-          movementFindings={client.movement_findings ?? []}
           movementScreenMetrics={movementScreenMetrics}
           clientMetrics={clientMetrics}
         />
