@@ -114,8 +114,15 @@ export type MovementScreen = {
   assessed_at: string; // ISO date
 };
 
+export type MovementFinding = {
+  id: string;
+  client_id: string;
+  label: string;
+};
+
 export type ClientWithRelations = Client & {
   parq_answers: ParqAnswers | null;
   movement_screens: MovementScreen | null;
+  movement_findings: MovementFinding[];
   client_metrics: ClientMetric[];
 };

@@ -49,6 +49,8 @@ type ClientMetric = {
   recorded_at: string;
 };
 
+type MovementFinding = { id: string; label: string };
+
 const MOBILITY_CHECKS: {
   key: keyof NonNullable<MovementScreen>;
   label: string;
@@ -179,11 +181,13 @@ export default function ClientEditor({
   client,
   parq: initialParq,
   movementScreen: initialMovementScreen,
+  movementFindings,
   clientMetrics,
 }: {
   client: ClientHeader;
   parq: Parq;
   movementScreen: MovementScreenInput;
+  movementFindings: MovementFinding[];
   clientMetrics: ClientMetric[];
 }) {
   const [name, setName] = useState(client.name);
@@ -194,6 +198,8 @@ export default function ClientEditor({
     toMovementScreenState(initialMovementScreen) ??
       emptyMovementScreen(client.id),
   );
+  const [findings, setFindings] = useState<MovementFinding[]>(movementFindings);
+  const [newFinding, setNewFinding] = useState("");
   const [metrics, setMetrics] = useState<ClientMetric[]>(
     clientMetrics.map((m) => ({ ...m, value: String(m.value) })),
   );
@@ -272,6 +278,27 @@ export default function ClientEditor({
       .select()
       .single();
     if (data) setScreen(toMovementScreenState(data));
+  }
+
+  async function addFinding(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newFinding.trim()) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("movement_findings")
+      .insert({ client_id: client.id, label: newFinding.trim() })
+      .select()
+      .single();
+    if (data) {
+      setFindings((prev) => [...prev, data]);
+      setNewFinding("");
+    }
+  }
+
+  async function deleteFinding(id: string) {
+    const supabase = createClient();
+    await supabase.from("movement_findings").delete().eq("id", id);
+    setFindings((prev) => prev.filter((f) => f.id !== id));
   }
 
   function addMetricRow() {
@@ -505,6 +532,46 @@ export default function ClientEditor({
               <span className="text-neutral-300">{c.label}</span>
             </label>
           ))}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs text-neutral-500 mb-1">
+            Other findings
+          </label>
+          {findings.length > 0 && (
+            <div className="space-y-1.5 mb-2">
+              {findings.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-center justify-between text-sm rounded-md bg-neutral-950 border border-neutral-800 px-3 py-1.5"
+                >
+                  <span className="text-neutral-300">{f.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => deleteFinding(f.id)}
+                    className="text-neutral-600 hover:text-red-400 transition text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <form onSubmit={addFinding} className="flex gap-2">
+            <input
+              type="text"
+              value={newFinding}
+              onChange={(e) => setNewFinding(e.target.value)}
+              placeholder="e.g. limited thoracic rotation"
+              className="flex-1 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-neutral-800 text-neutral-200 px-3 py-2 text-sm font-medium hover:bg-neutral-700 transition"
+            >
+              Add
+            </button>
+          </form>
         </div>
 
         <div className="flex gap-2 mb-3">
