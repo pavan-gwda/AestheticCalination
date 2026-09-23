@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type ClientHeader = {
@@ -367,8 +366,6 @@ export default function ClientEditor({
   movementScreenMetrics: ClientMetric[];
   clientMetrics: ClientMetric[];
 }) {
-  const router = useRouter();
-  const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState(client.name);
   const [email, setEmail] = useState(client.email ?? "");
   const [phone, setPhone] = useState(client.phone ?? "");
@@ -425,29 +422,6 @@ export default function ClientEditor({
       .from("clients")
       .update({ name, email: email || null, phone: phone || null })
       .eq("id", client.id);
-  }
-
-  async function deleteClient() {
-    if (
-      !window.confirm(
-        `Delete ${name || "this client"}? This removes their PAR-Q, movement screen, and progression data too. This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-    setDeleting(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("clients")
-      .delete()
-      .eq("id", client.id);
-    if (error) {
-      setDeleting(false);
-      window.alert(`Could not delete client: ${error.message}`);
-      return;
-    }
-    router.push("/clients");
-    router.refresh();
   }
 
   function updateParqField<K extends keyof NonNullable<Parq>>(
@@ -538,14 +512,6 @@ export default function ClientEditor({
             className="flex-1 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
           />
         </div>
-        <button
-          type="button"
-          onClick={deleteClient}
-          disabled={deleting}
-          className="text-xs text-neutral-600 hover:text-red-400 transition disabled:opacity-50"
-        >
-          {deleting ? "Deleting..." : "Delete client"}
-        </button>
       </div>
 
       <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900 p-4">

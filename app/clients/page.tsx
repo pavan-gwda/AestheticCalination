@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AccountBar from "@/components/account-bar";
+import DeleteClientButton from "./delete-client-button";
 
 export default async function ClientsPage() {
   const supabase = await createClient();
@@ -43,18 +44,34 @@ export default async function ClientsPage() {
         ) : (
           <div className="space-y-3">
             {clients.map((client) => (
-              <Link
+              <div
                 key={client.id}
-                href={`/clients/${client.id}`}
-                className="block rounded-lg border border-neutral-800 bg-neutral-900 p-4 hover:border-neutral-600 transition"
+                className="relative rounded-lg border border-neutral-800 bg-neutral-900 p-4 hover:border-neutral-600 transition"
               >
-                <h2 className="text-lg font-medium">{client.name}</h2>
-                {(client.email || client.phone) && (
-                  <p className="text-neutral-400 text-sm mt-1">
-                    {[client.email, client.phone].filter(Boolean).join(" · ")}
-                  </p>
-                )}
-              </Link>
+                <Link
+                  href={`/clients/${client.id}`}
+                  className="absolute inset-0"
+                  aria-label={client.name}
+                />
+                <div className="relative flex items-start justify-between gap-2 pointer-events-none">
+                  <div>
+                    <h2 className="text-lg font-medium">{client.name}</h2>
+                    {(client.email || client.phone) && (
+                      <p className="text-neutral-400 text-sm mt-1">
+                        {[client.email, client.phone]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="pointer-events-auto">
+                    <DeleteClientButton
+                      clientId={client.id}
+                      clientName={client.name}
+                    />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         )}
