@@ -101,13 +101,6 @@ export type ClientMetric = {
 export type MovementScreen = {
   id: string;
   client_id: string;
-  max_pull_ups: number | null;
-  max_push_ups: number | null;
-  max_dips: number | null;
-  max_squat_reps: number | null;
-  shoulder_overhead_restricted: boolean;
-  wrist_extension_restricted: boolean;
-  ankle_hip_restricted: boolean;
   years_training: number | null;
   current_goal: string | null;
   injury_notes: string | null;
@@ -118,6 +111,7 @@ export type MovementFinding = {
   id: string;
   client_id: string;
   label: string;
+  restricted: boolean;
 };
 
 export type ClientWithRelations = Client & {

@@ -28,13 +28,6 @@ type Parq = {
 type MovementScreen = {
   id?: string;
   client_id: string;
-  max_pull_ups: string;
-  max_push_ups: string;
-  max_dips: string;
-  max_squat_reps: string;
-  shoulder_overhead_restricted: boolean;
-  wrist_extension_restricted: boolean;
-  ankle_hip_restricted: boolean;
   years_training: string;
   current_goal: string;
   injury_notes: string;
@@ -49,25 +42,7 @@ type ClientMetric = {
   recorded_at: string;
 };
 
-type MovementFinding = { id: string; label: string };
-
-const MOBILITY_CHECKS: {
-  key: keyof NonNullable<MovementScreen>;
-  label: string;
-}[] = [
-  {
-    key: "shoulder_overhead_restricted",
-    label: "Shoulder overhead mobility is restricted",
-  },
-  {
-    key: "wrist_extension_restricted",
-    label: "Wrist extension is restricted",
-  },
-  {
-    key: "ankle_hip_restricted",
-    label: "Ankle or hip mobility is restricted",
-  },
-];
+type MovementFinding = { id: string; label: string; restricted: boolean };
 
 const PARQ_QUESTIONS: { key: keyof NonNullable<Parq>; label: string }[] = [
   {
@@ -109,13 +84,6 @@ const PARQ_QUESTIONS: { key: keyof NonNullable<Parq>; label: string }[] = [
 type MovementScreenInput = {
   id: string;
   client_id: string;
-  max_pull_ups: number | null;
-  max_push_ups: number | null;
-  max_dips: number | null;
-  max_squat_reps: number | null;
-  shoulder_overhead_restricted: boolean;
-  wrist_extension_restricted: boolean;
-  ankle_hip_restricted: boolean;
   years_training: number | null;
   current_goal: string | null;
   injury_notes: string | null;
@@ -144,13 +112,6 @@ function emptyParq(clientId: string): Parq {
 function emptyMovementScreen(clientId: string): MovementScreen {
   return {
     client_id: clientId,
-    max_pull_ups: "",
-    max_push_ups: "",
-    max_dips: "",
-    max_squat_reps: "",
-    shoulder_overhead_restricted: false,
-    wrist_extension_restricted: false,
-    ankle_hip_restricted: false,
     years_training: "",
     current_goal: "",
     injury_notes: "",
@@ -163,13 +124,6 @@ function toMovementScreenState(input: MovementScreenInput): MovementScreen {
   return {
     id: input.id,
     client_id: input.client_id,
-    max_pull_ups: input.max_pull_ups?.toString() ?? "",
-    max_push_ups: input.max_push_ups?.toString() ?? "",
-    max_dips: input.max_dips?.toString() ?? "",
-    max_squat_reps: input.max_squat_reps?.toString() ?? "",
-    shoulder_overhead_restricted: input.shoulder_overhead_restricted,
-    wrist_extension_restricted: input.wrist_extension_restricted,
-    ankle_hip_restricted: input.ankle_hip_restricted,
     years_training: input.years_training?.toString() ?? "",
     current_goal: input.current_goal ?? "",
     injury_notes: input.injury_notes ?? "",
@@ -200,6 +154,7 @@ export default function ClientEditor({
   );
   const [findings, setFindings] = useState<MovementFinding[]>(movementFindings);
   const [newFinding, setNewFinding] = useState("");
+  const [newFindingRestricted, setNewFindingRestricted] = useState(false);
   const [metrics, setMetrics] = useState<ClientMetric[]>(
     clientMetrics.map((m) => ({ ...m, value: String(m.value) })),
   );
@@ -254,20 +209,12 @@ export default function ClientEditor({
   async function saveScreen() {
     if (!screen) return;
     const supabase = createClient();
-    const toIntOrNull = (v: string) => (v === "" ? null : parseInt(v, 10));
     const toNumOrNull = (v: string) => (v === "" ? null : Number(v));
     const { data } = await supabase
       .from("movement_screens")
       .upsert(
         {
           client_id: client.id,
-          max_pull_ups: toIntOrNull(screen.max_pull_ups),
-          max_push_ups: toIntOrNull(screen.max_push_ups),
-          max_dips: toIntOrNull(screen.max_dips),
-          max_squat_reps: toIntOrNull(screen.max_squat_reps),
-          shoulder_overhead_restricted: screen.shoulder_overhead_restricted,
-          wrist_extension_restricted: screen.wrist_extension_restricted,
-          ankle_hip_restricted: screen.ankle_hip_restricted,
           years_training: toNumOrNull(screen.years_training),
           current_goal: screen.current_goal || null,
           injury_notes: screen.injury_notes || null,
@@ -286,13 +233,29 @@ export default function ClientEditor({
     const supabase = createClient();
     const { data } = await supabase
       .from("movement_findings")
-      .insert({ client_id: client.id, label: newFinding.trim() })
+      .insert({
+        client_id: client.id,
+        label: newFinding.trim(),
+        restricted: newFindingRestricted,
+      })
       .select()
       .single();
     if (data) {
       setFindings((prev) => [...prev, data]);
       setNewFinding("");
+      setNewFindingRestricted(false);
     }
+  }
+
+  async function toggleFindingRestricted(id: string, restricted: boolean) {
+    setFindings((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, restricted: !restricted } : f)),
+    );
+    const supabase = createClient();
+    await supabase
+      .from("movement_findings")
+      .update({ restricted: !restricted })
+      .eq("id", id);
   }
 
   async function deleteFinding(id: string) {
@@ -452,100 +415,36 @@ export default function ClientEditor({
       </div>
 
       <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-200 mb-3">
+        <h2 className="text-sm font-medium text-neutral-200 mb-1">
           Movement screen
         </h2>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1">
-              Max pull-ups
-            </label>
-            <input
-              type="number"
-              value={screen?.max_pull_ups ?? ""}
-              onChange={(e) =>
-                updateScreenField("max_pull_ups", e.target.value)
-              }
-              onBlur={saveScreen}
-              className="w-full rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1">
-              Max push-ups
-            </label>
-            <input
-              type="number"
-              value={screen?.max_push_ups ?? ""}
-              onChange={(e) =>
-                updateScreenField("max_push_ups", e.target.value)
-              }
-              onBlur={saveScreen}
-              className="w-full rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1">
-              Max dips
-            </label>
-            <input
-              type="number"
-              value={screen?.max_dips ?? ""}
-              onChange={(e) => updateScreenField("max_dips", e.target.value)}
-              onBlur={saveScreen}
-              className="w-full rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1">
-              Max squat reps
-            </label>
-            <input
-              type="number"
-              value={screen?.max_squat_reps ?? ""}
-              onChange={(e) =>
-                updateScreenField("max_squat_reps", e.target.value)
-              }
-              onBlur={saveScreen}
-              className="w-full rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-sm"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2 mb-4">
-          {MOBILITY_CHECKS.map((c) => (
-            <label key={c.key} className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={Boolean(screen?.[c.key])}
-                onChange={(e) => {
-                  updateScreenField(
-                    c.key,
-                    e.target
-                      .checked as NonNullable<MovementScreen>[typeof c.key],
-                  );
-                }}
-                onBlur={saveScreen}
-                className="rounded border-neutral-700 bg-neutral-950 mt-1"
-              />
-              <span className="text-neutral-300">{c.label}</span>
-            </label>
-          ))}
-        </div>
+        <p className="text-xs text-neutral-500 mb-3">
+          Log baseline strength (pull-ups, push-ups, etc.) as a dated entry in
+          Progression below.
+        </p>
 
         <div className="mb-4">
           <label className="block text-xs text-neutral-500 mb-1">
-            Other findings
+            Movement checks
           </label>
           {findings.length > 0 && (
             <div className="space-y-1.5 mb-2">
               {findings.map((f) => (
                 <div
                   key={f.id}
-                  className="flex items-center justify-between text-sm rounded-md bg-neutral-950 border border-neutral-800 px-3 py-1.5"
+                  className="flex items-center gap-2 text-sm rounded-md bg-neutral-950 border border-neutral-800 px-3 py-1.5"
                 >
-                  <span className="text-neutral-300">{f.label}</span>
+                  <input
+                    type="checkbox"
+                    checked={f.restricted}
+                    onChange={() => toggleFindingRestricted(f.id, f.restricted)}
+                    className="rounded border-neutral-700 bg-neutral-900"
+                  />
+                  <span
+                    className={`flex-1 ${f.restricted ? "text-amber-300" : "text-neutral-300"}`}
+                  >
+                    {f.label}
+                  </span>
                   <button
                     type="button"
                     onClick={() => deleteFinding(f.id)}
@@ -557,14 +456,23 @@ export default function ClientEditor({
               ))}
             </div>
           )}
-          <form onSubmit={addFinding} className="flex gap-2">
+          <form onSubmit={addFinding} className="flex items-center gap-2">
             <input
               type="text"
               value={newFinding}
               onChange={(e) => setNewFinding(e.target.value)}
-              placeholder="e.g. limited thoracic rotation"
+              placeholder="e.g. shoulder overhead mobility"
               className="flex-1 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
             />
+            <label className="flex items-center gap-1.5 text-xs text-neutral-400 whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={newFindingRestricted}
+                onChange={(e) => setNewFindingRestricted(e.target.checked)}
+                className="rounded border-neutral-700 bg-neutral-950"
+              />
+              Restricted
+            </label>
             <button
               type="submit"
               className="rounded-md bg-neutral-800 text-neutral-200 px-3 py-2 text-sm font-medium hover:bg-neutral-700 transition"
