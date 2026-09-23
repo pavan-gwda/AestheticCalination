@@ -39,18 +39,26 @@ type ClientMetric = {
   name: string;
   value: string;
   unit: string;
+  category: string;
+  notes: string;
   recorded_at: string;
 };
 
 type MovementFinding = { id: string; label: string; restricted: boolean };
 
-const DEFAULT_STRENGTH_MOVEMENTS: { name: string; unit: string }[] = [
-  { name: "Push-ups", unit: "reps" },
-  { name: "Pull-ups", unit: "reps" },
-  { name: "Dips", unit: "reps" },
-  { name: "L-sit", unit: "seconds" },
-  { name: "Chin-ups", unit: "reps" },
-  { name: "Cardio (optional)", unit: "minutes" },
+const METRIC_CATEGORIES = ["Strength", "Mobility", "Cardio", "Other"];
+
+const DEFAULT_STRENGTH_MOVEMENTS: {
+  name: string;
+  unit: string;
+  category: string;
+}[] = [
+  { name: "Push-ups", unit: "reps", category: "Strength" },
+  { name: "Pull-ups", unit: "reps", category: "Strength" },
+  { name: "Dips", unit: "reps", category: "Strength" },
+  { name: "L-sit", unit: "seconds", category: "Strength" },
+  { name: "Chin-ups", unit: "reps", category: "Strength" },
+  { name: "Cardio (optional)", unit: "minutes", category: "Cardio" },
 ];
 
 const DEFAULT_MOBILITY_CHECKS = ["Ankle", "Wrist", "Hip", "Shoulders"];
@@ -168,12 +176,18 @@ export default function ClientEditor({
   const [newFindingRestricted, setNewFindingRestricted] = useState(false);
   const [metrics, setMetrics] = useState<ClientMetric[]>(
     clientMetrics.length > 0
-      ? clientMetrics.map((m) => ({ ...m, value: String(m.value) }))
+      ? clientMetrics.map((m) => ({
+          ...m,
+          value: String(m.value),
+          notes: m.notes ?? "",
+        }))
       : DEFAULT_STRENGTH_MOVEMENTS.map((d) => ({
           id: null,
           name: d.name,
           value: "",
           unit: d.unit,
+          category: d.category,
+          notes: "",
           recorded_at: todayISO(),
         })),
   );
@@ -284,7 +298,15 @@ export default function ClientEditor({
   function addMetricRow() {
     setMetrics((prev) => [
       ...prev,
-      { id: null, name: "", value: "", unit: "level", recorded_at: todayISO() },
+      {
+        id: null,
+        name: "",
+        value: "",
+        unit: "level",
+        category: "Other",
+        notes: "",
+        recorded_at: todayISO(),
+      },
     ]);
   }
 
@@ -310,6 +332,8 @@ export default function ClientEditor({
           name: metric.name,
           value: Number(metric.value),
           unit: metric.unit,
+          category: metric.category,
+          notes: metric.notes || null,
           recorded_at: metric.recorded_at,
         })
         .eq("id", metric.id);
@@ -321,6 +345,8 @@ export default function ClientEditor({
           name: metric.name,
           value: Number(metric.value),
           unit: metric.unit,
+          category: metric.category,
+          notes: metric.notes || null,
           recorded_at: metric.recorded_at,
         })
         .select()
@@ -579,56 +605,105 @@ export default function ClientEditor({
         <h2 className="text-sm font-medium text-neutral-400 mb-2">
           Progression
         </h2>
-        <div className="space-y-2 mb-2">
-          {metrics.map((m, i) => (
-            <div key={m.id ?? `new-${i}`} className="flex gap-2">
-              <input
-                type="text"
-                placeholder="e.g. tuck planche"
-                value={m.name}
-                onChange={(e) => updateMetricField(i, "name", e.target.value)}
-                onBlur={() => saveMetric(i)}
-                className="flex-1 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
-              />
-              <input
-                type="number"
-                placeholder="value"
-                value={m.value}
-                onChange={(e) => updateMetricField(i, "value", e.target.value)}
-                onBlur={() => saveMetric(i)}
-                className="w-20 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
-              />
-              <select
-                value={m.unit}
-                onChange={(e) => {
-                  updateMetricField(i, "unit", e.target.value);
-                  saveMetric(i);
-                }}
-                className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-2 text-sm"
-              >
-                <option value="level">level</option>
-                <option value="reps">reps</option>
-                <option value="seconds">seconds</option>
-              </select>
-              <input
-                type="date"
-                value={m.recorded_at}
-                onChange={(e) =>
-                  updateMetricField(i, "recorded_at", e.target.value)
-                }
-                onBlur={() => saveMetric(i)}
-                className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-2 text-sm"
-              />
-              <button
-                type="button"
-                onClick={() => deleteMetric(i)}
-                className="text-neutral-500 hover:text-red-400 transition px-1"
-              >
-                ×
-              </button>
+        {METRIC_CATEGORIES.map((category) => {
+          const rows = metrics
+            .map((m, i) => ({ m, i }))
+            .filter(({ m }) => (m.category || "Other") === category);
+          if (rows.length === 0) return null;
+          return (
+            <div key={category} className="mb-4">
+              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">
+                {category}
+              </h3>
+              <div className="space-y-2">
+                {rows.map(({ m, i }) => (
+                  <div
+                    key={m.id ?? `new-${i}`}
+                    className="rounded-md border border-neutral-800 bg-neutral-900 p-2"
+                  >
+                    <div className="flex gap-2 mb-1.5">
+                      <input
+                        type="text"
+                        placeholder="e.g. tuck planche"
+                        value={m.name}
+                        onChange={(e) =>
+                          updateMetricField(i, "name", e.target.value)
+                        }
+                        onBlur={() => saveMetric(i)}
+                        className="flex-1 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
+                      />
+                      <input
+                        type="number"
+                        placeholder="value"
+                        value={m.value}
+                        onChange={(e) =>
+                          updateMetricField(i, "value", e.target.value)
+                        }
+                        onBlur={() => saveMetric(i)}
+                        className="w-20 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
+                      />
+                      <select
+                        value={m.unit}
+                        onChange={(e) => {
+                          updateMetricField(i, "unit", e.target.value);
+                          saveMetric(i);
+                        }}
+                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-2 text-sm"
+                      >
+                        <option value="level">level</option>
+                        <option value="reps">reps</option>
+                        <option value="seconds">seconds</option>
+                        <option value="minutes">minutes</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => deleteMetric(i)}
+                        className="text-neutral-500 hover:text-red-400 transition px-1"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="flex gap-2 mb-1.5">
+                      <select
+                        value={m.category || "Other"}
+                        onChange={(e) => {
+                          updateMetricField(i, "category", e.target.value);
+                          saveMetric(i);
+                        }}
+                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-xs text-neutral-400"
+                      >
+                        {METRIC_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="date"
+                        value={m.recorded_at}
+                        onChange={(e) =>
+                          updateMetricField(i, "recorded_at", e.target.value)
+                        }
+                        onBlur={() => saveMetric(i)}
+                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-xs"
+                      />
+                    </div>
+                    <textarea
+                      value={m.notes}
+                      onChange={(e) =>
+                        updateMetricField(i, "notes", e.target.value)
+                      }
+                      onBlur={() => saveMetric(i)}
+                      placeholder="Limitations / assessment notes..."
+                      rows={1}
+                      className="w-full rounded-md bg-neutral-950 border border-neutral-800 px-3 py-1.5 text-xs resize-none"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
         <button
           type="button"
           onClick={addMetricRow}

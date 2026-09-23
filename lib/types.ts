@@ -95,6 +95,8 @@ export type ClientMetric = {
   name: string;
   value: number;
   unit: string;
+  category: string;
+  notes: string | null;
   recorded_at: string; // ISO date
 };
 
