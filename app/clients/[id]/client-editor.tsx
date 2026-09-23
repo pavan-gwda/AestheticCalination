@@ -458,13 +458,9 @@ export default function ClientEditor({
       </div>
 
       <div className="mb-6 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-200 mb-1">
+        <h2 className="text-sm font-medium text-neutral-200 mb-3">
           Movement screen
         </h2>
-        <p className="text-xs text-neutral-500 mb-3">
-          Log baseline strength (pull-ups, push-ups, etc.) as a dated entry in
-          Progression below.
-        </p>
 
         <div className="mb-4">
           <label className="block text-xs text-neutral-500 mb-1">
@@ -545,6 +541,116 @@ export default function ClientEditor({
           </form>
         </div>
 
+        <div className="mb-4">
+          <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">
+            Progression
+          </h3>
+          {METRIC_CATEGORIES.map((category) => {
+            const rows = metrics
+              .map((m, i) => ({ m, i }))
+              .filter(({ m }) => (m.category || "Other") === category);
+            if (rows.length === 0) return null;
+            return (
+              <div key={category} className="mb-3">
+                <h4 className="text-xs text-neutral-600 mb-1.5">{category}</h4>
+                <div className="space-y-2">
+                  {rows.map(({ m, i }) => (
+                    <div
+                      key={m.id ?? `new-${i}`}
+                      className="rounded-md border border-neutral-800 bg-neutral-950 p-2"
+                    >
+                      <div className="flex gap-2 mb-1.5">
+                        <input
+                          type="text"
+                          placeholder="e.g. tuck planche"
+                          value={m.name}
+                          onChange={(e) =>
+                            updateMetricField(i, "name", e.target.value)
+                          }
+                          onBlur={() => saveMetric(i)}
+                          className="flex-1 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
+                        />
+                        <input
+                          type="number"
+                          placeholder="value"
+                          value={m.value}
+                          onChange={(e) =>
+                            updateMetricField(i, "value", e.target.value)
+                          }
+                          onBlur={() => saveMetric(i)}
+                          className="w-20 rounded-md bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm"
+                        />
+                        <select
+                          value={m.unit}
+                          onChange={(e) => {
+                            updateMetricField(i, "unit", e.target.value);
+                            saveMetric(i);
+                          }}
+                          className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-2 text-sm"
+                        >
+                          <option value="level">level</option>
+                          <option value="reps">reps</option>
+                          <option value="seconds">seconds</option>
+                          <option value="minutes">minutes</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => deleteMetric(i)}
+                          className="text-neutral-500 hover:text-red-400 transition px-1"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="flex gap-2 mb-1.5">
+                        <select
+                          value={m.category || "Other"}
+                          onChange={(e) => {
+                            updateMetricField(i, "category", e.target.value);
+                            saveMetric(i);
+                          }}
+                          className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-1.5 text-xs text-neutral-400"
+                        >
+                          {METRIC_CATEGORIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="date"
+                          value={m.recorded_at}
+                          onChange={(e) =>
+                            updateMetricField(i, "recorded_at", e.target.value)
+                          }
+                          onBlur={() => saveMetric(i)}
+                          className="rounded-md bg-neutral-900 border border-neutral-800 px-2 py-1.5 text-xs"
+                        />
+                      </div>
+                      <textarea
+                        value={m.notes}
+                        onChange={(e) =>
+                          updateMetricField(i, "notes", e.target.value)
+                        }
+                        onBlur={() => saveMetric(i)}
+                        placeholder="Limitations / assessment notes..."
+                        rows={1}
+                        className="w-full rounded-md bg-neutral-900 border border-neutral-800 px-3 py-1.5 text-xs resize-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            onClick={addMetricRow}
+            className="text-xs text-neutral-400 hover:text-neutral-200 transition"
+          >
+            + Add progression entry
+          </button>
+        </div>
+
         <div className="flex gap-2 mb-3">
           <div className="flex-1">
             <label className="block text-xs text-neutral-500 mb-1">
@@ -599,118 +705,6 @@ export default function ClientEditor({
             className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1 text-xs"
           />
         </div>
-      </div>
-
-      <div className="mb-6">
-        <h2 className="text-sm font-medium text-neutral-400 mb-2">
-          Progression
-        </h2>
-        {METRIC_CATEGORIES.map((category) => {
-          const rows = metrics
-            .map((m, i) => ({ m, i }))
-            .filter(({ m }) => (m.category || "Other") === category);
-          if (rows.length === 0) return null;
-          return (
-            <div key={category} className="mb-4">
-              <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5">
-                {category}
-              </h3>
-              <div className="space-y-2">
-                {rows.map(({ m, i }) => (
-                  <div
-                    key={m.id ?? `new-${i}`}
-                    className="rounded-md border border-neutral-800 bg-neutral-900 p-2"
-                  >
-                    <div className="flex gap-2 mb-1.5">
-                      <input
-                        type="text"
-                        placeholder="e.g. tuck planche"
-                        value={m.name}
-                        onChange={(e) =>
-                          updateMetricField(i, "name", e.target.value)
-                        }
-                        onBlur={() => saveMetric(i)}
-                        className="flex-1 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
-                      />
-                      <input
-                        type="number"
-                        placeholder="value"
-                        value={m.value}
-                        onChange={(e) =>
-                          updateMetricField(i, "value", e.target.value)
-                        }
-                        onBlur={() => saveMetric(i)}
-                        className="w-20 rounded-md bg-neutral-950 border border-neutral-800 px-3 py-2 text-sm"
-                      />
-                      <select
-                        value={m.unit}
-                        onChange={(e) => {
-                          updateMetricField(i, "unit", e.target.value);
-                          saveMetric(i);
-                        }}
-                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-2 text-sm"
-                      >
-                        <option value="level">level</option>
-                        <option value="reps">reps</option>
-                        <option value="seconds">seconds</option>
-                        <option value="minutes">minutes</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => deleteMetric(i)}
-                        className="text-neutral-500 hover:text-red-400 transition px-1"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="flex gap-2 mb-1.5">
-                      <select
-                        value={m.category || "Other"}
-                        onChange={(e) => {
-                          updateMetricField(i, "category", e.target.value);
-                          saveMetric(i);
-                        }}
-                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-xs text-neutral-400"
-                      >
-                        {METRIC_CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="date"
-                        value={m.recorded_at}
-                        onChange={(e) =>
-                          updateMetricField(i, "recorded_at", e.target.value)
-                        }
-                        onBlur={() => saveMetric(i)}
-                        className="rounded-md bg-neutral-950 border border-neutral-800 px-2 py-1.5 text-xs"
-                      />
-                    </div>
-                    <textarea
-                      value={m.notes}
-                      onChange={(e) =>
-                        updateMetricField(i, "notes", e.target.value)
-                      }
-                      onBlur={() => saveMetric(i)}
-                      placeholder="Limitations / assessment notes..."
-                      rows={1}
-                      className="w-full rounded-md bg-neutral-950 border border-neutral-800 px-3 py-1.5 text-xs resize-none"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        <button
-          type="button"
-          onClick={addMetricRow}
-          className="text-xs text-neutral-400 hover:text-neutral-200 transition"
-        >
-          + Add progression entry
-        </button>
       </div>
     </div>
   );
